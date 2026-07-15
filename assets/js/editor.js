@@ -1,15 +1,16 @@
 /**
  * WP Gutenberg A11y Enforcer — Editor Script
  *
- * Hooks into `blocks.getSaveElement` to enforce accessibility rules
- * on the client side before Gutenberg serialises block content.
+ * Reads server-side config (window.gaeConfig.blockRules) and enforces
+ * accessibility rules client-side via blocks.getSaveElement filter.
  *
- * If a core/image block is missing its alt attribute, saving is blocked
- * by returning a React element wrapped in an error boundary placeholder
- * that Gutenberg marks as invalid, preventing the save action.
+ * Supported rules:
+ *   require_alt             — core/image must have alt attribute
+ *   require_link_text       — core/button must have non-empty text
+ *   require_non_empty_text  — core/heading must have non-empty content
  */
 
-/* global wp */
+/* global wp, gaeConfig */
 ( function () {
     'use strict';
 
@@ -17,44 +18,80 @@
     const { createElement, Fragment } = wp.element;
 
     /**
-     * Validate accessibility rules for a block.
+     * Block rules from PHP (via wp_localize_script).
+     * Falls back to defaults so the script works even without localisation.
      *
-     * @param {Object} attributes Block attributes.
-     * @param {string} blockName  Block name (e.g. 'core/image').
-     * @returns {string[]} Array of violation messages (empty = valid).
+     * @type {Object.<string, string[]>}
      */
-    function getA11yViolations( blockName, attributes ) {
+    const blockRules = ( typeof gaeConfig !== 'undefined' && gaeConfig.blockRules )
+        ? gaeConfig.blockRules
+        : {
+            'core/image':   [ 'require_alt' ],
+            'core/button':  [ 'require_link_text' ],
+            'core/heading': [ 'require_non_empty_text' ],
+        };
+
+    /**
+     * Return violation messages for a block.
+     *
+     * @param {string} blockName
+     * @param {Object} attributes
+     * @param {*}      element    React element (innerHTML proxy for text checks)
+     * @returns {string[]}
+     */
+    function getA11yViolations( blockName, attributes, element ) {
+        const rules      = blockRules[ blockName ] || [];
         const violations = [];
 
-        if ( blockName === 'core/image' && ! attributes.alt ) {
-            violations.push(
-                'core/image block is missing an alt text attribute. ' +
-                'Add alt text to satisfy WCAG 2.1 Success Criterion 1.1.1.'
-            );
-        }
+        rules.forEach( ( rule ) => {
+            switch ( rule ) {
+                case 'require_alt':
+                    if ( ! attributes.alt ) {
+                        violations.push(
+                            'core/image: missing alt text — WCAG 2.1 SC 1.1.1.'
+                        );
+                    }
+                    break;
+
+                case 'require_link_text': {
+                    const text = ( attributes.text || '' ).replace( /<[^>]*>/g, '' ).trim();
+                    if ( ! text ) {
+                        violations.push(
+                            'core/button: missing link text — WCAG 2.4.6.'
+                        );
+                    }
+                    break;
+                }
+
+                case 'require_non_empty_text': {
+                    const content = ( attributes.content || '' ).replace( /<[^>]*>/g, '' ).trim();
+                    if ( ! content ) {
+                        violations.push(
+                            'core/heading: heading must not be empty — WCAG 2.4.6.'
+                        );
+                    }
+                    break;
+                }
+            }
+        } );
 
         return violations;
     }
 
     /**
-     * Filter applied to every block's save element.
-     * When violations are found, we render a visible error element so
-     * Gutenberg detects a block validation failure and prevents saving.
+     * Filter: enforce a11y rules on save element.
+     * Returns a sentinel element that differs from saved markup when
+     * violations exist, causing Gutenberg to flag the block as invalid.
      */
     function enforceA11yOnSave( element, blockType, attributes ) {
-        const violations = getA11yViolations( blockType.name, attributes );
+        const violations = getA11yViolations( blockType.name, attributes, element );
 
         if ( violations.length === 0 ) {
             return element;
         }
 
-        // Console warning for developers.
-        violations.forEach( ( msg ) =>
-            console.warn( '[A11y Enforcer]', msg )
-        );
+        violations.forEach( ( msg ) => console.warn( '[A11y Enforcer]', msg ) );
 
-        // Return a sentinel element that differs from the saved markup so
-        // Gutenberg marks the block as invalid (red border + "Attempt recovery").
         return createElement(
             Fragment,
             null,

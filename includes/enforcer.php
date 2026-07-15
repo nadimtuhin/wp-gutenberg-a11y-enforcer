@@ -1,37 +1,118 @@
 <?php
+/**
+ * Core enforcer: validates blocks against configured a11y rules.
+ */
 namespace GutenbergA11yEnforcer;
+
+if ( defined( 'ABSPATH' ) === false && ! defined( 'PHPUNIT_RUNNING' ) ) {
+    exit;
+}
 
 class Enforcer {
 
-    /**
-     * Validate a single parsed block array.
-     * Returns false if the block fails accessibility checks.
-     */
-    public function validateBlock( array $block ): bool {
-        if ( $block['blockName'] === 'core/image' && empty( $block['attrs']['alt'] ) ) {
-            return false;
-        }
-        return true;
+    /** @var array|null Cached config (block => [rules]) */
+    private ?array $config = null;
+
+    /** @var ValidationLog|null */
+    private ?ValidationLog $log = null;
+
+    public function __construct( ?ValidationLog $log = null ) {
+        $this->log = $log;
     }
 
     /**
-     * Scan post content (serialised block HTML), strip invalid core/image blocks.
-     * Hooked to `content_save_pre`.
+     * Lazy-load config; callable injected for tests.
+     */
+    private function getConfig(): array {
+        if ( $this->config === null ) {
+            $this->config = function_exists( 'get_option' )
+                ? Settings::getConfig()
+                : Settings::defaults();
+        }
+        return $this->config;
+    }
+
+    /**
+     * Override config (used in tests).
+     */
+    public function setConfig( array $config ): void {
+        $this->config = $config;
+    }
+
+    /**
+     * Validate a single parsed block array.
+     * Returns array of violation messages (empty = valid).
      *
-     * @param string $content Raw post content.
-     * @return string Filtered content with non-compliant blocks removed.
+     * @param array $block Parsed block array from parse_blocks().
+     * @return string[]
+     */
+    public function getViolations( array $block ): array {
+        $config     = $this->getConfig();
+        $block_name = $block['blockName'] ?? '';
+        $attrs      = $block['attrs'] ?? [];
+        $rules      = $config[ $block_name ] ?? [];
+        $violations = [];
+
+        foreach ( $rules as $rule ) {
+            switch ( $rule ) {
+                case 'require_alt':
+                    if ( empty( $attrs['alt'] ) ) {
+                        $violations[] = "core/image: missing alt text (WCAG 1.1.1).";
+                    }
+                    break;
+
+                case 'require_link_text':
+                    // Button: check 'text' attr or inner HTML is non-empty.
+                    $text = $attrs['text'] ?? ( $block['innerHTML'] ?? '' );
+                    if ( '' === trim( wp_strip_all_tags( $text ) ) ) {
+                        $violations[] = "core/button: missing link text (WCAG 2.4.6).";
+                    }
+                    break;
+
+                case 'require_non_empty_text':
+                    $text = $attrs['content'] ?? ( $block['innerHTML'] ?? '' );
+                    if ( '' === trim( wp_strip_all_tags( $text ) ) ) {
+                        $violations[] = "core/heading: heading must not be empty (WCAG 2.4.6).";
+                    }
+                    break;
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * Validate block; returns false if any violations found.
+     * BC-compatible with original API.
+     */
+    public function validateBlock( array $block ): bool {
+        return count( $this->getViolations( $block ) ) === 0;
+    }
+
+    /**
+     * Scan post content, strip non-compliant blocks, log violations.
+     * Hooked to `content_save_pre`.
      */
     public function filterContent( string $content ): string {
         if ( ! function_exists( 'parse_blocks' ) ) {
             return $content;
         }
 
+        $post_id = $this->getCurrentPostId();
         $blocks  = parse_blocks( $content );
         $kept    = [];
 
         foreach ( $blocks as $block ) {
-            if ( $this->validateBlock( $block ) ) {
+            $violations = $this->getViolations( $block );
+            if ( empty( $violations ) ) {
                 $kept[] = $block;
+            } else {
+                if ( $this->log && $post_id ) {
+                    foreach ( $violations as $msg ) {
+                        $rule = $this->ruleFromMessage( $msg );
+                        $this->log->log( $post_id, $block['blockName'] ?? '', $rule, $msg );
+                    }
+                }
             }
         }
 
@@ -39,18 +120,13 @@ class Enforcer {
     }
 
     /**
-     * Serialise block array back to HTML string.
-     * Uses WP core when available, falls back to manual serialisation.
-     *
-     * @param array $blocks
-     * @return string
+     * Serialise block array back to HTML.
      */
     public function serializeBlocks( array $blocks ): string {
         if ( function_exists( 'serialize_blocks' ) ) {
             return serialize_blocks( $blocks );
         }
 
-        // Minimal fallback: join inner HTML strings (covers unit-test context).
         $output = '';
         foreach ( $blocks as $block ) {
             $output .= isset( $block['innerHTML'] ) ? $block['innerHTML'] : '';
@@ -67,12 +143,12 @@ class Enforcer {
     }
 
     /**
-     * Enqueue the Gutenberg editor JS that enforces a11y on the client side.
+     * Enqueue the Gutenberg editor JS.
      */
     public function enqueueEditorScript(): void {
         $asset_file = plugin_dir_path( __DIR__ ) . 'assets/js/editor.asset.php';
         $deps       = [ 'wp-blocks', 'wp-hooks', 'wp-i18n' ];
-        $version    = '1.0.0';
+        $version    = '1.2.0';
 
         if ( file_exists( $asset_file ) ) {
             $asset   = require $asset_file;
@@ -80,6 +156,8 @@ class Enforcer {
             $version = $asset['version'];
         }
 
+        // Pass current config to JS.
+        $config = $this->getConfig();
         wp_enqueue_script(
             'wp-gutenberg-a11y-enforcer-editor',
             plugins_url( 'assets/js/editor.js', __DIR__ . '/wp-gutenberg-a11y-enforcer.php' ),
@@ -87,5 +165,39 @@ class Enforcer {
             $version,
             true
         );
+        wp_localize_script(
+            'wp-gutenberg-a11y-enforcer-editor',
+            'gaeConfig',
+            [ 'blockRules' => $config ]
+        );
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Helpers
+    // ------------------------------------------------------------------ //
+
+    private function getCurrentPostId(): int {
+        $post_id = 0;
+        if ( function_exists( 'get_the_ID' ) ) {
+            $post_id = (int) get_the_ID();
+        }
+        // Fallback for REST saves.
+        if ( ! $post_id && isset( $_POST['post_ID'] ) ) {
+            $post_id = absint( $_POST['post_ID'] );
+        }
+        return $post_id;
+    }
+
+    private function ruleFromMessage( string $msg ): string {
+        if ( strpos( $msg, 'alt' ) !== false ) {
+            return 'require_alt';
+        }
+        if ( strpos( $msg, 'link text' ) !== false ) {
+            return 'require_link_text';
+        }
+        if ( strpos( $msg, 'heading' ) !== false ) {
+            return 'require_non_empty_text';
+        }
+        return 'unknown';
     }
 }
