@@ -1,0 +1,12 @@
+{
+    "name": "nadimtuhin/wp-gutenberg-a11y-enforcer",
+    "type": "wordpress-plugin",
+    "require-dev": {
+        "phpunit/phpunit": "^9"
+    },
+    "autoload": {
+        "psr-4": {
+            "GutenbergA11yEnforcer\\": "includes/"
+        }
+    }
+}
