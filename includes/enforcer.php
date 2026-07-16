@@ -158,6 +158,14 @@ class Enforcer {
         // Apply alt auto-fixer before validation (Issue #7).
         $blocks = array_map( [ $this, 'maybeAutoFixAlt' ], $blocks );
 
+        // Issue #9: heading-hierarchy — log violations but do not strip blocks.
+        $hierarchy_violations = $this->checkHeadingHierarchy( $blocks );
+        if ( ! empty( $hierarchy_violations ) && $this->log && $post_id ) {
+            foreach ( $hierarchy_violations as $msg ) {
+                $this->log->log( $post_id, 'core/heading', 'heading_hierarchy', $msg );
+            }
+        }
+
         $kept    = [];
 
         foreach ( $blocks as $block ) {
@@ -175,6 +183,42 @@ class Enforcer {
         }
 
         return $this->serializeBlocks( $kept );
+    }
+
+    /**
+     * Check heading hierarchy across an array of blocks (WCAG 1.3.1).
+     * Flags any heading whose level skips more than one step up from the
+     * previous heading (e.g. H2 → H4). Descending back (H3 → H2) is allowed.
+     *
+     * Violations are logged but blocks are NOT stripped — the content is
+     * preserved; only a log entry is written.
+     *
+     * @param array[] $blocks
+     * @return string[] Violation messages (empty = no hierarchy issues).
+     */
+    public function checkHeadingHierarchy( array $blocks ): array {
+        $violations = [];
+        $prev_level = 0;
+
+        foreach ( $blocks as $block ) {
+            if ( ( $block['blockName'] ?? '' ) !== 'core/heading' ) {
+                continue;
+            }
+
+            $level = (int) ( $block['attrs']['level'] ?? 2 );
+
+            if ( $prev_level > 0 && $level > $prev_level + 1 ) {
+                $violations[] = sprintf(
+                    'core/heading: heading level skips from H%d to H%d (WCAG 1.3.1).',
+                    $prev_level,
+                    $level
+                );
+            }
+
+            $prev_level = $level;
+        }
+
+        return $violations;
     }
 
     /**

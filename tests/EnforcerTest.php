@@ -302,4 +302,45 @@ class EnforcerTest extends TestCase {
     public function testBypassMetaKeyConstantDefined(): void {
         $this->assertSame( '_gae_bypass_validation', \GutenbergA11yEnforcer\Settings::BYPASS_META_KEY );
     }
+
+    // ------------------------------------------------------------------ //
+    //  Issue #9 — HeadingHierarchy check
+    // ------------------------------------------------------------------ //
+
+    public function testCheckHeadingHierarchyPassesForSequential(): void {
+        $blocks = [
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 2 ], 'innerHTML' => '<h2>A</h2>' ],
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 3 ], 'innerHTML' => '<h3>B</h3>' ],
+        ];
+        $this->assertEmpty( $this->enforcer->checkHeadingHierarchy( $blocks ) );
+    }
+
+    public function testCheckHeadingHierarchyFlagsSkippedLevel(): void {
+        $blocks = [
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 2 ], 'innerHTML' => '<h2>A</h2>' ],
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 4 ], 'innerHTML' => '<h4>B</h4>' ],
+        ];
+        $violations = $this->enforcer->checkHeadingHierarchy( $blocks );
+        $this->assertCount( 1, $violations );
+        $this->assertStringContainsString( 'H2', $violations[0] );
+        $this->assertStringContainsString( 'H4', $violations[0] );
+    }
+
+    public function testCheckHeadingHierarchyIgnoresNonHeadingBlocks(): void {
+        $blocks = [
+            [ 'blockName' => 'core/heading',   'attrs' => [ 'level' => 2 ], 'innerHTML' => '<h2>A</h2>' ],
+            [ 'blockName' => 'core/paragraph', 'attrs' => [], 'innerHTML' => '<p>text</p>' ],
+            [ 'blockName' => 'core/heading',   'attrs' => [ 'level' => 3 ], 'innerHTML' => '<h3>B</h3>' ],
+        ];
+        $this->assertEmpty( $this->enforcer->checkHeadingHierarchy( $blocks ) );
+    }
+
+    public function testCheckHeadingHierarchyAllowsDescendingBack(): void {
+        $blocks = [
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 2 ], 'innerHTML' => '<h2>A</h2>' ],
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 3 ], 'innerHTML' => '<h3>B</h3>' ],
+            [ 'blockName' => 'core/heading', 'attrs' => [ 'level' => 2 ], 'innerHTML' => '<h2>C</h2>' ],
+        ];
+        $this->assertEmpty( $this->enforcer->checkHeadingHierarchy( $blocks ) );
+    }
 }
