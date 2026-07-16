@@ -90,6 +90,38 @@ class Enforcer {
     }
 
     /**
+     * Try to auto-fix a core/image block missing alt text.
+     * Applies the `gae_alt_autofixer` filter so third-party code can
+     * supply a generated alt string (e.g. from AI or attachment meta).
+     *
+     * Filter signature:
+     *   apply_filters( 'gae_alt_autofixer', string $alt, array $block ): string
+     *
+     * If the filter returns a non-empty string, it is written into
+     * `$block['attrs']['alt']` before the block is validated. When the
+     * filter returns '' (the default) the block is returned unchanged.
+     *
+     * @param array $block Parsed block array.
+     * @return array Block, possibly with alt injected.
+     */
+    public function maybeAutoFixAlt( array $block ): array {
+        if ( ( $block['blockName'] ?? '' ) !== 'core/image' ) {
+            return $block;
+        }
+        if ( ! empty( $block['attrs']['alt'] ) ) {
+            return $block;
+        }
+
+        /** @var string $alt */
+        $alt = \apply_filters( 'gae_alt_autofixer', '', $block );
+        if ( '' !== trim( $alt ) ) {
+            $block['attrs']['alt'] = sanitize_text_field( $alt );
+        }
+
+        return $block;
+    }
+
+    /**
      * Scan post content, strip non-compliant blocks, log violations.
      * Hooked to `content_save_pre`.
      */
@@ -100,6 +132,10 @@ class Enforcer {
 
         $post_id = $this->getCurrentPostId();
         $blocks  = parse_blocks( $content );
+
+        // Apply alt auto-fixer before validation (Issue #7).
+        $blocks = array_map( [ $this, 'maybeAutoFixAlt' ], $blocks );
+
         $kept    = [];
 
         foreach ( $blocks as $block ) {

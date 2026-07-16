@@ -61,6 +61,8 @@ if ( ! function_exists( 'plugins_url' ) )  { function plugins_url( $path, $plugi
 if ( ! function_exists( 'plugin_dir_path' ) ) { function plugin_dir_path( $file ) { return dirname( $file ) . '/'; } }
 if ( ! function_exists( 'get_the_ID' ) )   { function get_the_ID() { return 0; } }
 if ( ! function_exists( 'absint' ) )        { function absint( $v ) { return abs( (int) $v ); } }
+if ( ! function_exists( 'apply_filters' ) ) { function apply_filters( $tag, $value ) { return $value; } }
+if ( ! function_exists( 'sanitize_text_field' ) ) { function sanitize_text_field( $str ) { return trim( strip_tags( $str ) ); } }
 
 class EnforcerTest extends TestCase {
 
@@ -258,5 +260,28 @@ class EnforcerTest extends TestCase {
         $this->enforcer->setConfig( [ 'core/image' => [] ] );
         $block = [ 'blockName' => 'core/image', 'attrs' => [], 'innerHTML' => '' ];
         $this->assertTrue( $this->enforcer->validateBlock( $block ) );
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Issue #7 — gae_alt_autofixer filter hook
+    // ------------------------------------------------------------------ //
+
+    public function testMaybeAutoFixAltLeavesNonImageBlockUntouched(): void {
+        $block  = [ 'blockName' => 'core/paragraph', 'attrs' => [], 'innerHTML' => '<p>Hi</p>' ];
+        $result = $this->enforcer->maybeAutoFixAlt( $block );
+        $this->assertSame( $block, $result );
+    }
+
+    public function testMaybeAutoFixAltLeavesBlockWithAltUntouched(): void {
+        $block  = [ 'blockName' => 'core/image', 'attrs' => [ 'alt' => 'Cat' ], 'innerHTML' => '' ];
+        $result = $this->enforcer->maybeAutoFixAlt( $block );
+        $this->assertSame( 'Cat', $result['attrs']['alt'] );
+    }
+
+    public function testMaybeAutoFixAltDoesNotInjectEmptyString(): void {
+        // apply_filters stub returns '' — no alt should be injected.
+        $block  = [ 'blockName' => 'core/image', 'attrs' => [], 'innerHTML' => '' ];
+        $result = $this->enforcer->maybeAutoFixAlt( $block );
+        $this->assertArrayNotHasKey( 'alt', $result['attrs'] );
     }
 }
