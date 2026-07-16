@@ -16,6 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once __DIR__ . '/includes/settings.php';
 require_once __DIR__ . '/includes/validation-log.php';
 require_once __DIR__ . '/includes/enforcer.php';
+require_once __DIR__ . '/includes/ai-alt-text.php';
+require_once __DIR__ . '/includes/schema-validator.php';
+require_once __DIR__ . '/includes/contrast-checker.php';
 
 // Bootstrap.
 $gae_log      = new \GutenbergA11yEnforcer\ValidationLog();
@@ -25,6 +28,15 @@ $gae_enforcer = new \GutenbergA11yEnforcer\Enforcer( $gae_log );
 $gae_enforcer->register();
 $gae_settings->register();
 $gae_log->register();
+
+// Issue #4: AI alt-text suggestion API.
+( new \GutenbergA11yEnforcer\AiAltText() )->register();
+
+// Issue #5: Schema validation filter.
+( new \GutenbergA11yEnforcer\SchemaValidator() )->register();
+
+// Issue #6: Real-time contrast checker.
+( new \GutenbergA11yEnforcer\ContrastChecker() )->register();
 
 // Create/upgrade log table on load (cheap version-gated check).
 $gae_log->maybeCreateTable();
