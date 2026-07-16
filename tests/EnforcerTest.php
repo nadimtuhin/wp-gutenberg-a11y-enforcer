@@ -63,6 +63,7 @@ if ( ! function_exists( 'get_the_ID' ) )   { function get_the_ID() { return 0; }
 if ( ! function_exists( 'absint' ) )        { function absint( $v ) { return abs( (int) $v ); } }
 if ( ! function_exists( 'apply_filters' ) ) { function apply_filters( $tag, $value ) { return $value; } }
 if ( ! function_exists( 'sanitize_text_field' ) ) { function sanitize_text_field( $str ) { return trim( strip_tags( $str ) ); } }
+if ( ! function_exists( 'get_post_meta' ) ) { function get_post_meta( $post_id, $key, $single = false ) { return $single ? '' : []; } }
 
 class EnforcerTest extends TestCase {
 
@@ -283,5 +284,22 @@ class EnforcerTest extends TestCase {
         $block  = [ 'blockName' => 'core/image', 'attrs' => [], 'innerHTML' => '' ];
         $result = $this->enforcer->maybeAutoFixAlt( $block );
         $this->assertArrayNotHasKey( 'alt', $result['attrs'] );
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Issue #8 — bypass meta key
+    // ------------------------------------------------------------------ //
+
+    public function testIsBypassedForPostReturnsFalseForZeroId(): void {
+        $this->assertFalse( $this->enforcer->isBypassedForPost( 0 ) );
+    }
+
+    public function testIsBypassedForPostReturnsFalseWhenMetaAbsent(): void {
+        // get_post_meta stub returns '' (not '1').
+        $this->assertFalse( $this->enforcer->isBypassedForPost( 42 ) );
+    }
+
+    public function testBypassMetaKeyConstantDefined(): void {
+        $this->assertSame( '_gae_bypass_validation', \GutenbergA11yEnforcer\Settings::BYPASS_META_KEY );
     }
 }

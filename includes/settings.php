@@ -14,6 +14,15 @@ class Settings {
     const OPTION_KEY = 'gae_block_validation_config';
 
     /**
+     * Post meta key: when this meta is set to '1' on a post, all block
+     * validation is skipped for that save. Admins can set it via custom
+     * fields or programmatically with update_post_meta().
+     *
+     * Issue #8.
+     */
+    const BYPASS_META_KEY = '_gae_bypass_validation';
+
+    /**
      * Default block validation config.
      * Each key is a block name; value is array of enabled rule slugs.
      */

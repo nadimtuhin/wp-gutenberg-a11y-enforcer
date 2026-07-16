@@ -122,6 +122,22 @@ class Enforcer {
     }
 
     /**
+     * Whether block validation should be skipped for a given post.
+     * Reads the `_gae_bypass_validation` post meta key (value '1').
+     *
+     * Issue #8.
+     */
+    public function isBypassedForPost( int $post_id ): bool {
+        if ( $post_id <= 0 ) {
+            return false;
+        }
+        if ( ! function_exists( 'get_post_meta' ) ) {
+            return false;
+        }
+        return '1' === \get_post_meta( $post_id, Settings::BYPASS_META_KEY, true );
+    }
+
+    /**
      * Scan post content, strip non-compliant blocks, log violations.
      * Hooked to `content_save_pre`.
      */
@@ -131,6 +147,12 @@ class Enforcer {
         }
 
         $post_id = $this->getCurrentPostId();
+
+        // Issue #8: skip all validation when bypass meta is set.
+        if ( $this->isBypassedForPost( $post_id ) ) {
+            return $content;
+        }
+
         $blocks  = parse_blocks( $content );
 
         // Apply alt auto-fixer before validation (Issue #7).
