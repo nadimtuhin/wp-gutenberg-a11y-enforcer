@@ -62,7 +62,16 @@ class WcagEmExport {
     }
 
     public function restWcagEmReport( \WP_REST_Request $request ): \WP_REST_Response {
-        $post_id = (int) ( $request->get_param( 'post_id' ) ?? 0 );
+        $post_id = absint( $request->get_param( 'post_id' ) ?? 0 );
+
+        // Issue #27: validate post_id is a real, accessible post — prevents
+        // directory traversal or IDOR by fabricated IDs.
+        if ( $post_id > 0 ) {
+            $post = \get_post( $post_id );
+            if ( ! $post || ! \current_user_can( 'read_post', $post_id ) ) {
+                return new \WP_REST_Response( [ 'error' => 'Post not found or not accessible.' ], 404 );
+            }
+        }
 
         $report = $post_id > 0
             ? $this->generateReportForPost( $post_id )
