@@ -1,0 +1,34 @@
+# Dependencies
+/node_modules/
+/vendor/
+
+# Build artifacts
+/build/
+/dist/
+*.min.js
+*.min.css
+
+# WordPress
+/wp-config.php
+/.htaccess
+
+# PHP
+*.log
+*.cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Test coverage
+/coverage/
