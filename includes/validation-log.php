@@ -67,11 +67,11 @@ class ValidationLog {
          * }
          */
         $data = \apply_filters( 'gae_log_entry_data', [
-            'post_id'    => $post_id,
-            'block_name' => $block_name,
-            'rule'       => $rule,
-            'severity'   => $severity,
-            'message'    => $message,
+            'post_id'    => absint( $post_id ),
+            'block_name' => sanitize_text_field( $block_name ),
+            'rule'       => sanitize_key( $rule ),
+            'severity'   => sanitize_key( $severity ),
+            'message'    => wp_kses_post( $message ), // strip XSS; allow safe HTML. Issue #26.
             'created_at' => current_time( 'mysql' ),
         ] );
 
@@ -123,12 +123,18 @@ class ValidationLog {
 
     /**
      * Total count of log entries.
+     * Uses prepare() to prevent SQL injection. Issue #34.
      */
     public function countEntries(): int {
         global $wpdb;
         $table = $this->tableName();
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+        return (int) $wpdb->get_var(
+            // Table name cannot be parameterised with %s in prepare(); it is
+            // always the WP prefix + a hardcoded slug — safe here.
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE 1=%d", 1 )
+        );
     }
 
     /**
