@@ -32,7 +32,10 @@ class VoiceOverSimulator extends ScreenReaderSimulator {
             [
                 'methods'             => 'POST',
                 'callback'            => [ $this, 'restVoiceOverPreview' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    // Issue #35: endpoint reads post content — require edit_posts.
+                    return \current_user_can( 'edit_posts' );
+                },
             ]
         );
     }
