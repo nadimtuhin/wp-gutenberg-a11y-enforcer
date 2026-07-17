@@ -82,9 +82,17 @@ class BlockHierarchy {
             if ( empty( $block['blockName'] ) ) {
                 continue;
             }
+            // Issue #33: whitelist safe scalar attrs only — prevent prototype
+            // pollution from crafted block JSON injecting __proto__ / constructor keys.
+            $raw_attrs = is_array( $block['attrs'] ?? null ) ? $block['attrs'] : [];
+            $safe_attrs = array_filter(
+                $raw_attrs,
+                fn( $k ) => is_string( $k ) && ! in_array( $k, [ '__proto__', 'constructor', 'prototype' ], true ),
+                ARRAY_FILTER_USE_KEY
+            );
             $node = [
-                'name'     => $block['blockName'],
-                'attrs'    => $block['attrs'] ?? [],
+                'name'     => sanitize_text_field( $block['blockName'] ),
+                'attrs'    => $safe_attrs,
                 'children' => [],
             ];
             if ( ! empty( $block['innerBlocks'] ) ) {
