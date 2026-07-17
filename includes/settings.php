@@ -70,6 +70,8 @@ class Settings {
     }
 
     public function registerSettings(): void {
+        // Issue #31: nonce protection handled automatically by settings_fields()
+        // (output in renderPage) + WP options.php which verifies _wpnonce.
         register_setting(
             'gae_settings_group',
             self::OPTION_KEY,
