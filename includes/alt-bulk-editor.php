@@ -136,6 +136,11 @@ class AltBulkEditor {
                 continue;
             }
 
+            // Issue #28: verify caller can edit this specific attachment.
+            if ( ! \current_user_can( 'edit_post', $id ) ) {
+                continue;
+            }
+
             /**
              * Filter the alt text before it is saved for an attachment.
              *
