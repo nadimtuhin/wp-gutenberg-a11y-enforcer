@@ -59,9 +59,16 @@ class WcagAaaProfile {
      */
     public function filterProfile( string $profile, string $post_type ): string {
         if ( in_array( $post_type, $this->getAaaPostTypes(), true ) ) {
-            return 'wcag_aaa';
+            $profile = 'wcag_aaa';
         }
-        return $profile;
+
+        /**
+         * Filter the resolved WCAG AAA profile for a post type.
+         *
+         * @param string $profile   The resolved profile slug.
+         * @param string $post_type The post type being evaluated.
+         */
+        return (string) \apply_filters( 'gae_wcag_aaa_profile', $profile, $post_type );
     }
 
     /**

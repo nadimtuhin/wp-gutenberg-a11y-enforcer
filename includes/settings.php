@@ -40,10 +40,18 @@ class Settings {
     public static function getConfig(): array {
         $saved = get_option( self::OPTION_KEY, [] );
         if ( ! is_array( $saved ) || empty( $saved ) ) {
-            return self::defaults();
+            $config = self::defaults();
+        } else {
+            // Merge: saved values win, but add any new defaults not yet in DB.
+            $config = array_merge( self::defaults(), $saved );
         }
-        // Merge: saved values win, but add any new defaults not yet in DB.
-        return array_merge( self::defaults(), $saved );
+
+        /**
+         * Filter the complete block validation config.
+         *
+         * @param array $config Array of block_name => [rule slugs].
+         */
+        return \apply_filters( 'gae_block_validation_config', $config );
     }
 
     public function register(): void {

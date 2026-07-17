@@ -56,6 +56,15 @@ class VoiceOverSimulator extends ScreenReaderSimulator {
         $transcript = $this->transcript( $blocks );
         $ssml       = $this->toSsml( $transcript );
 
+        /**
+         * Filter the VoiceOver SSML output before it is returned.
+         *
+         * @param string   $ssml       The SSML markup string.
+         * @param string[] $transcript The transcript lines.
+         * @param array[]  $blocks     The parsed blocks.
+         */
+        $ssml = \apply_filters( 'gae_voiceover_ssml', $ssml, $transcript, $blocks );
+
         return new \WP_REST_Response(
             [
                 'ssml'       => $ssml,

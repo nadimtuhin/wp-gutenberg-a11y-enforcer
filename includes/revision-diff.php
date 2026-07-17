@@ -108,7 +108,7 @@ class RevisionDiff {
         $score_a = $result_a['overall'];
         $score_b = $result_b['overall'];
 
-        return [
+        $diff = [
             'score_a'     => $score_a,
             'score_b'     => $score_b,
             'score_delta' => $score_b - $score_a,
@@ -116,5 +116,14 @@ class RevisionDiff {
             'blocks_b'    => $result_b['blocks'],
             'summary'     => $score_b >= $score_a ? 'improved_or_unchanged' : 'regressed',
         ];
+
+        /**
+         * Filter the revision diff result.
+         *
+         * @param array  $diff      The diff result array.
+         * @param string $content_a Old content.
+         * @param string $content_b New content.
+         */
+        return \apply_filters( 'gae_revision_diff_result', $diff, $content_a, $content_b );
     }
 }

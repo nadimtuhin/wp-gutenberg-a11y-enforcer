@@ -127,7 +127,14 @@ class SchemaValidator {
             }
         }
 
-        return $violations;
+        /**
+         * Filter schema violations for a specific block.
+         *
+         * @param string[] $violations Violation messages.
+         * @param array    $block      The parsed block array.
+         * @param array    $schema     The schema descriptor applied.
+         */
+        return \apply_filters( 'gae_schema_block_violations', $violations, $block, $schema );
     }
 
     /**

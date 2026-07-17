@@ -86,7 +86,13 @@ class ThirdPartyAdapter {
             }
         }
 
-        return $violations;
+        /**
+         * Filter violations collected from all third-party validators for a block.
+         *
+         * @param string[] $violations Collected violation messages.
+         * @param array    $block      The parsed block array.
+         */
+        return \apply_filters( 'gae_third_party_violations', $violations, $block );
     }
 
     /**

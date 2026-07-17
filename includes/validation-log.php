@@ -54,18 +54,40 @@ class ValidationLog {
      */
     public function log( int $post_id, string $block_name, string $rule, string $message, string $severity = 'error' ): void {
         global $wpdb;
+
+        /**
+         * Filter the violation data before it is written to the log.
+         *
+         * @param array $data {
+         *     @type int    $post_id    Post ID.
+         *     @type string $block_name Block name.
+         *     @type string $rule       Rule slug.
+         *     @type string $message    Violation message.
+         *     @type string $severity   Severity level.
+         * }
+         */
+        $data = \apply_filters( 'gae_log_entry_data', [
+            'post_id'    => $post_id,
+            'block_name' => $block_name,
+            'rule'       => $rule,
+            'severity'   => $severity,
+            'message'    => $message,
+            'created_at' => current_time( 'mysql' ),
+        ] );
+
         $wpdb->insert(
             $this->tableName(),
-            [
-                'post_id'    => $post_id,
-                'block_name' => $block_name,
-                'rule'       => $rule,
-                'severity'   => $severity,
-                'message'    => $message,
-                'created_at' => current_time( 'mysql' ),
-            ],
+            $data,
             [ '%d', '%s', '%s', '%s', '%s', '%s' ]
         );
+
+        /**
+         * Fires after a violation is logged.
+         *
+         * @param array $data    The logged violation data.
+         * @param int   $post_id The post ID where the violation occurred.
+         */
+        \do_action( 'gae_violation_logged', $data, $post_id );
     }
 
     /**
@@ -81,13 +103,22 @@ class ValidationLog {
         $table    = $this->tableName();
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-        return $wpdb->get_results(
+        $entries = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT %d OFFSET %d",
                 $per_page,
                 $offset
             )
         );
+
+        /**
+         * Filter the log entries returned from the database.
+         *
+         * @param array $entries  Array of row objects from the log table.
+         * @param int   $per_page Number of entries per page.
+         * @param int   $page     Current page number.
+         */
+        return \apply_filters( 'gae_log_entries', $entries, $per_page, $page );
     }
 
     /**

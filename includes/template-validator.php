@@ -71,6 +71,14 @@ class TemplateValidator {
      */
     public function validateAllTemplates(): array {
         $templates = $this->getBlockTemplates();
+
+        /**
+         * Fires before block templates are validated.
+         *
+         * @param array[] $templates Array of { slug, content } template definitions.
+         */
+        \do_action( 'gae_before_validate_templates', $templates );
+
         $violations = [];
         $checked    = 0;
 
@@ -96,11 +104,18 @@ class TemplateValidator {
             }
         }
 
-        return [
+        $result = [
             'templates_checked' => $checked,
             'violations'        => $violations,
             'clean'             => empty( $violations ),
         ];
+
+        /**
+         * Filter the template validation results.
+         *
+         * @param array $result { templates_checked: int, violations: array[], clean: bool }
+         */
+        return \apply_filters( 'gae_template_validation_results', $result );
     }
 
     /**

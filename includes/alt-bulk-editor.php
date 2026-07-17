@@ -120,6 +120,13 @@ class AltBulkEditor {
      * @return int Number of updated attachments.
      */
     public function bulkUpdateAlt( array $updates ): int {
+        /**
+         * Fires before bulk alt text update begins.
+         *
+         * @param array $updates Array of { id: int, alt: string } pairs.
+         */
+        \do_action( 'gae_before_alt_bulk_update', $updates );
+
         $count = 0;
         foreach ( $updates as $item ) {
             $id  = (int) ( $item['id'] ?? 0 );
@@ -129,9 +136,25 @@ class AltBulkEditor {
                 continue;
             }
 
+            /**
+             * Filter the alt text before it is saved for an attachment.
+             *
+             * @param string $alt The sanitized alt text to be saved.
+             * @param int    $id  The attachment ID.
+             */
+            $alt = \apply_filters( 'gae_alt_bulk_update_value', $alt, $id );
+
             \update_post_meta( $id, '_wp_attachment_image_alt', $alt );
             $count++;
         }
+
+        /**
+         * Fires after bulk alt text update completes.
+         *
+         * @param int $count Number of attachments updated.
+         */
+        \do_action( 'gae_after_alt_bulk_update', $count );
+
         return $count;
     }
 

@@ -83,12 +83,33 @@ class ContrastChecker {
 
         $ratio = $this->contrastRatio( $fg_rgb, $bg_rgb );
 
+        /**
+         * Filter the WCAG AA contrast ratio threshold for normal text.
+         *
+         * @param float $threshold Minimum ratio (default 4.5).
+         */
+        $aa_threshold = (float) \apply_filters( 'gae_contrast_ratio_threshold_aa', self::WCAG_AA_NORMAL );
+
+        /**
+         * Filter the WCAG AA contrast ratio threshold for large text/UI components.
+         *
+         * @param float $threshold Minimum ratio (default 3.0).
+         */
+        $aa_large_threshold = (float) \apply_filters( 'gae_contrast_ratio_threshold_aa_large', self::WCAG_AA_LARGE );
+
+        /**
+         * Filter the WCAG AAA contrast ratio threshold.
+         *
+         * @param float $threshold Minimum ratio (default 7.0).
+         */
+        $aaa_threshold = (float) \apply_filters( 'gae_contrast_ratio_threshold_aaa', self::WCAG_AAA_NORMAL );
+
         return new \WP_REST_Response(
             [
-                'ratio'       => round( $ratio, 2 ),
-                'passes_aa'   => $ratio >= self::WCAG_AA_NORMAL,
-                'passes_aa_large' => $ratio >= self::WCAG_AA_LARGE,
-                'passes_aaa'  => $ratio >= self::WCAG_AAA_NORMAL,
+                'ratio'           => round( $ratio, 2 ),
+                'passes_aa'       => $ratio >= $aa_threshold,
+                'passes_aa_large' => $ratio >= $aa_large_threshold,
+                'passes_aaa'      => $ratio >= $aaa_threshold,
             ],
             200
         );

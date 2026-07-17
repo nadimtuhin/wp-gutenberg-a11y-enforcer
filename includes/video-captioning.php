@@ -81,17 +81,45 @@ class VideoCaptioning {
             case 'core/video':
                 if ( ! $this->hasTracksInHtml( $block['innerHTML'] ?? '' ) &&
                      empty( $attrs['tracks'] ) ) {
-                    $violations[] = 'core/video: missing captions track (WCAG 1.2.2).';
+                    /**
+                     * Filter the violation message for a video block missing captions.
+                     *
+                     * @param string $msg   Default violation message.
+                     * @param array  $block The parsed video block.
+                     */
+                    $violations[] = \apply_filters(
+                        'gae_video_caption_violation_message',
+                        'core/video: missing captions track (WCAG 1.2.2).',
+                        $block
+                    );
                 }
                 break;
 
             case 'core/audio':
                 if ( empty( $attrs['transcript'] ) &&
                      ! $this->hasTranscriptLink( $block['innerHTML'] ?? '' ) ) {
-                    $violations[] = 'core/audio: missing transcript or description (WCAG 1.2.1).';
+                    /**
+                     * Filter the violation message for an audio block missing a transcript.
+                     *
+                     * @param string $msg   Default violation message.
+                     * @param array  $block The parsed audio block.
+                     */
+                    $violations[] = \apply_filters(
+                        'gae_audio_transcript_violation_message',
+                        'core/audio: missing transcript or description (WCAG 1.2.1).',
+                        $block
+                    );
                 }
                 break;
         }
+
+        /**
+         * Fires after video/audio caption checks complete for a block.
+         *
+         * @param array    $violations Current violation list.
+         * @param array    $block      The parsed block.
+         */
+        \do_action( 'gae_after_video_caption_check', $violations, $block );
 
         return $violations;
     }

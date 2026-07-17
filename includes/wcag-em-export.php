@@ -68,6 +68,14 @@ class WcagEmExport {
             ? $this->generateReportForPost( $post_id )
             : $this->generateSiteReport();
 
+        /**
+         * Filter the WCAG-EM report data before it is returned.
+         *
+         * @param array $report  The WCAG-EM report array.
+         * @param int   $post_id The post ID (0 for site-wide reports).
+         */
+        $report = \apply_filters( 'gae_wcag_em_report_data', $report, $post_id );
+
         return new \WP_REST_Response( $report, 200 );
     }
 

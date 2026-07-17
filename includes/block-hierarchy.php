@@ -58,6 +58,14 @@ class BlockHierarchy {
         $blocks = \parse_blocks( $post->post_content );
         $tree   = $this->buildTree( $blocks );
 
+        /**
+         * Filter the block hierarchy tree before it is returned.
+         *
+         * @param array[] $tree    The nested block hierarchy tree.
+         * @param int     $post_id The post ID.
+         */
+        $tree = \apply_filters( 'gae_block_hierarchy_tree', $tree, $post_id );
+
         return new \WP_REST_Response( [ 'tree' => $tree ], 200 );
     }
 

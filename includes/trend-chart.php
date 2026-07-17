@@ -80,6 +80,15 @@ class TrendChart {
         if ( ! isset( $wpdb ) ) {
             return;
         }
+
+        /**
+         * Filter the score before it is recorded in the history table.
+         *
+         * @param int $score   The accessibility score (0–100).
+         * @param int $post_id The post ID.
+         */
+        $score = (int) \apply_filters( 'gae_record_score', $score, $post_id );
+
         $table = $wpdb->prefix . 'gae_score_history';
         $wpdb->insert(
             $table,
@@ -90,6 +99,14 @@ class TrendChart {
             ],
             [ '%d', '%d', '%s' ]
         );
+
+        /**
+         * Fires after a score snapshot is recorded.
+         *
+         * @param int $post_id The post ID.
+         * @param int $score   The score that was recorded.
+         */
+        \do_action( 'gae_score_recorded', $post_id, $score );
     }
 
     /**

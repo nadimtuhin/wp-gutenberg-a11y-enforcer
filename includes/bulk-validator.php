@@ -61,6 +61,14 @@ class BulkValidator {
      * @return array { scanned: int, posts: array[] }
      */
     public function scanPosts( string $post_type, int $limit ): array {
+        /**
+         * Fires before bulk post scanning begins.
+         *
+         * @param string $post_type The post type being scanned.
+         * @param int    $limit     Max number of posts to scan.
+         */
+        \do_action( 'gae_before_bulk_validate', $post_type, $limit );
+
         $posts = \get_posts( [
             'post_type'      => $post_type,
             'posts_per_page' => $limit,
@@ -80,10 +88,25 @@ class BulkValidator {
             ];
         }
 
-        return [
+        $output = [
             'scanned' => count( $results ),
             'posts'   => $results,
         ];
+
+        /**
+         * Fires after all posts have been scanned in bulk.
+         *
+         * @param array $output { scanned: int, posts: array[] }
+         */
+        \do_action( 'gae_bulk_validation_complete', $output );
+
+        /**
+         * Filter the bulk validation results.
+         *
+         * @param array  $output    { scanned: int, posts: array[] }
+         * @param string $post_type The post type that was scanned.
+         */
+        return \apply_filters( 'gae_bulk_validation_results', $output, $post_type );
     }
 
     /**

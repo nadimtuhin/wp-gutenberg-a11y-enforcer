@@ -80,6 +80,14 @@ class AccessibilityScore {
             return [ 'overall' => 100, 'blocks' => [] ];
         }
 
+        /**
+         * Filter the score weights used when computing block-level scores.
+         * Keys: 'critical', 'major', 'minor'; values are point deductions.
+         *
+         * @param array $weights { critical: int, major: int, minor: int }
+         */
+        $weights = \apply_filters( 'gae_score_weights', [ 'critical' => 3, 'major' => 2, 'minor' => 1 ] );
+
         $scored = [];
         foreach ( $named_blocks as $block ) {
             $violations = $this->enforcer->getViolations( $block );
@@ -93,10 +101,19 @@ class AccessibilityScore {
 
         $overall = (int) round( array_sum( array_column( $scored, 'score' ) ) / count( $scored ) );
 
-        return [
+        $result = [
             'overall' => $overall,
             'blocks'  => $scored,
         ];
+
+        /**
+         * Filter the complete accessibility score result.
+         *
+         * @param array    $result  { overall: int, blocks: array[] }
+         * @param array[]  $blocks  The original parsed blocks array.
+         * @param array    $weights Score weights used.
+         */
+        return \apply_filters( 'gae_accessibility_score_result', $result, $blocks, $weights );
     }
 
     /**

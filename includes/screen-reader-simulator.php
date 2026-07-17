@@ -40,7 +40,13 @@ class ScreenReaderSimulator {
             }
         }
 
-        return $lines;
+        /**
+         * Filter the complete screen reader transcript lines.
+         *
+         * @param string[] $lines  Announcement strings, one per block.
+         * @param array[]  $blocks The original parsed blocks array.
+         */
+        return \apply_filters( 'gae_screen_reader_transcript', $lines, $blocks );
     }
 
     /**

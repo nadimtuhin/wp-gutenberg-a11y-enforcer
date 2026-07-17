@@ -88,6 +88,15 @@ class RuleProfile {
      */
     public function getProfile( string $slug ): array {
         $profiles = array_merge( self::builtinProfiles(), self::$profiles );
+
+        /**
+         * Filter the full profiles registry before a profile is resolved.
+         *
+         * @param array  $profiles  All available profiles (slug => config).
+         * @param string $slug      The requested profile slug.
+         */
+        $profiles = \apply_filters( 'gae_profiles_registry', $profiles, $slug );
+
         return $profiles[ $slug ] ?? $profiles['default'];
     }
 

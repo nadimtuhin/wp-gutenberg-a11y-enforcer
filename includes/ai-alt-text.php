@@ -76,13 +76,37 @@ class AiAltText {
         }
 
         /**
+         * Fires before the AI alt text suggestion is generated.
+         *
+         * @param int      $id   Attachment ID.
+         * @param \WP_Post $post Attachment post object.
+         */
+        \do_action( 'gae_before_suggest_alt', $id, $post );
+
+        /**
          * Filter: allow third parties to inject an AI-generated alt string.
          *
          * @param string   $alt  Draft alt text (caption or title).
          * @param \WP_Post $post Attachment post object.
          */
         $alt = (string) \apply_filters( 'gae_suggest_alt_text', $alt, $post );
+
+        /**
+         * Filter the final alt text suggestion for an attachment.
+         *
+         * @param string $alt Draft alt text after gae_suggest_alt_text filter.
+         * @param int    $id  Attachment ID.
+         */
+        $alt = (string) \apply_filters( 'gae_alt_text_suggestion', $alt, $id );
         $alt = \sanitize_text_field( $alt );
+
+        /**
+         * Fires after the alt text suggestion has been generated.
+         *
+         * @param string $alt The final suggested alt text.
+         * @param int    $id  Attachment ID.
+         */
+        \do_action( 'gae_after_suggest_alt', $alt, $id );
 
         return new \WP_REST_Response( [ 'alt' => $alt ], 200 );
     }

@@ -50,14 +50,48 @@ class Enforcer {
         $config     = $this->getConfig();
         $block_name = $block['blockName'] ?? '';
         $attrs      = $block['attrs'] ?? [];
-        $rules      = $config[ $block_name ] ?? [];
+
+        /**
+         * Filter the rules applied to a specific block before validation.
+         *
+         * @param array  $rules      Array of rule slugs for this block.
+         * @param string $block_name The block name (e.g. 'core/image').
+         * @param array  $block      The full parsed block array.
+         */
+        $rules      = \apply_filters( 'gae_block_rules', $config[ $block_name ] ?? [], $block_name, $block );
+
+        /**
+         * Filter the list of block types to skip during validation entirely.
+         *
+         * @param string[] $ignored Array of block names to skip (default empty).
+         */
+        $ignored = \apply_filters( 'gae_ignored_blocks', [] );
+        if ( in_array( $block_name, $ignored, true ) ) {
+            return [];
+        }
+
         $violations = [];
+
+        /**
+         * Fires before a block is validated against its rules.
+         *
+         * @param array $block The parsed block array.
+         */
+        \do_action( 'gae_before_validate_block', $block );
 
         foreach ( $rules as $rule ) {
             switch ( $rule ) {
                 case 'require_alt':
                     if ( empty( $attrs['alt'] ) ) {
-                        $violations[] = "core/image: missing alt text (WCAG 1.1.1).";
+                        $msg = "core/image: missing alt text (WCAG 1.1.1).";
+                        /**
+                         * Filter a violation message for a specific block and rule.
+                         *
+                         * @param string $msg   The default violation message.
+                         * @param array  $block The parsed block array.
+                         * @param string $rule  The rule slug that triggered the violation.
+                         */
+                        $violations[] = \apply_filters( 'gae_violation_message', $msg, $block, 'require_alt' );
                     }
                     break;
 
@@ -65,20 +99,38 @@ class Enforcer {
                     // Button: check 'text' attr or inner HTML is non-empty.
                     $text = $attrs['text'] ?? ( $block['innerHTML'] ?? '' );
                     if ( '' === trim( wp_strip_all_tags( $text ) ) ) {
-                        $violations[] = "core/button: missing link text (WCAG 2.4.6).";
+                        $msg = "core/button: missing link text (WCAG 2.4.6).";
+                        /** @see gae_violation_message */
+                        $violations[] = \apply_filters( 'gae_violation_message', $msg, $block, 'require_link_text' );
                     }
                     break;
 
                 case 'require_non_empty_text':
                     $text = $attrs['content'] ?? ( $block['innerHTML'] ?? '' );
                     if ( '' === trim( wp_strip_all_tags( $text ) ) ) {
-                        $violations[] = "core/heading: heading must not be empty (WCAG 2.4.6).";
+                        $msg = "core/heading: heading must not be empty (WCAG 2.4.6).";
+                        /** @see gae_violation_message */
+                        $violations[] = \apply_filters( 'gae_violation_message', $msg, $block, 'require_non_empty_text' );
                     }
                     break;
             }
         }
 
-        return $violations;
+        /**
+         * Fires after a block has been validated.
+         *
+         * @param array    $block      The parsed block array.
+         * @param string[] $violations Array of violation messages (empty = valid).
+         */
+        \do_action( 'gae_after_validate_block', $block, $violations );
+
+        /**
+         * Filter the final violations list for a block.
+         *
+         * @param string[] $violations Violation messages.
+         * @param array    $block      The parsed block array.
+         */
+        return \apply_filters( 'gae_block_violations', $violations, $block );
     }
 
     /**
@@ -158,11 +210,28 @@ class Enforcer {
         // Apply alt auto-fixer before validation (Issue #7).
         $blocks = array_map( [ $this, 'maybeAutoFixAlt' ], $blocks );
 
+        /**
+         * Fires before content blocks are validated.
+         *
+         * @param array[] $blocks  Parsed blocks array.
+         * @param int     $post_id The current post ID.
+         */
+        \do_action( 'gae_before_filter_content', $blocks, $post_id );
+
         // Issue #9: heading-hierarchy — log violations but do not strip blocks.
         $hierarchy_violations = $this->checkHeadingHierarchy( $blocks );
-        if ( ! empty( $hierarchy_violations ) && $this->log && $post_id ) {
-            foreach ( $hierarchy_violations as $msg ) {
-                $this->log->log( $post_id, 'core/heading', 'heading_hierarchy', $msg );
+        if ( ! empty( $hierarchy_violations ) ) {
+            /**
+             * Fires when a heading hierarchy violation is detected.
+             *
+             * @param string[] $hierarchy_violations List of violation messages.
+             * @param int      $post_id              The current post ID.
+             */
+            \do_action( 'gae_heading_hierarchy_violation', $hierarchy_violations, $post_id );
+            if ( $this->log && $post_id ) {
+                foreach ( $hierarchy_violations as $msg ) {
+                    $this->log->log( $post_id, 'core/heading', 'heading_hierarchy', $msg );
+                }
             }
         }
 
