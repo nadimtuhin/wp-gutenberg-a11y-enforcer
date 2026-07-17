@@ -41,7 +41,10 @@ class AccessibilityScore {
             [
                 'methods'             => 'GET',
                 'callback'            => [ $this, 'restAccessibilityScore' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    // Require edit_posts: exposes post content via block parse. Issue #32.
+                    return \current_user_can( 'edit_posts' );
+                },
                 'args'                => [
                     'post_id' => [
                         'required'          => true,

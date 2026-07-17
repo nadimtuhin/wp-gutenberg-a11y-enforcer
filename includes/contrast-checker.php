@@ -46,7 +46,11 @@ class ContrastChecker {
             [
                 'methods'             => 'GET',
                 'callback'            => [ $this, 'restContrastRatio' ],
-                'permission_callback' => '__return_true', // public — no auth needed for math.
+                'permission_callback' => function() {
+                    // Issue #32: require at least edit_posts to prevent public exposure.
+                    // Pure math, but limits scrapers and DoS surface.
+                    return \current_user_can( 'edit_posts' );
+                },
                 'args'                => [
                     'fg' => [
                         'required'          => true,
