@@ -98,7 +98,8 @@ class AiAltText {
          * @param int    $id  Attachment ID.
          */
         $alt = (string) \apply_filters( 'gae_alt_text_suggestion', $alt, $id );
-        $alt = \sanitize_text_field( $alt );
+        // Issue #29: strip tags before sanitize to block XSS from AI/exec output.
+        $alt = \sanitize_text_field( wp_strip_all_tags( $alt ) );
 
         /**
          * Fires after the alt text suggestion has been generated.

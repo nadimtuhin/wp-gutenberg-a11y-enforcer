@@ -198,6 +198,7 @@ class Enforcer {
             return $content;
         }
 
+        // Sanitize post_id — never trust raw $_POST without absint. Issue #26/#30.
         $post_id = $this->getCurrentPostId();
 
         // Issue #8: skip all validation when bypass meta is set.
@@ -352,9 +353,9 @@ class Enforcer {
         if ( function_exists( 'get_the_ID' ) ) {
             $post_id = (int) get_the_ID();
         }
-        // Fallback for REST saves.
+        // Fallback for REST saves — absint + nonce validated upstream by WP REST API. Issue #30.
         if ( ! $post_id && isset( $_POST['post_ID'] ) ) {
-            $post_id = absint( $_POST['post_ID'] );
+            $post_id = absint( wp_unslash( $_POST['post_ID'] ) );
         }
         return $post_id;
     }
