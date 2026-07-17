@@ -1,4 +1,10 @@
-# WP Gutenberg A11y Enforcer
+```
+ _      ______   ____  ____ 
+| | /| / / __ \ / __ \/ __ \
+| |/ |/ / /_/ // /_/ / /_/ /
+|__/|__/\____/ \____/ \____/ 
+  Gutenberg Enforcer
+```
 
 A WordPress plugin that enforces accessibility (a11y) rules on Gutenberg block content — both **server-side** (PHP, via a `content_save_pre` filter) and **client-side** (JavaScript, via the `blocks.getSaveElement` Gutenberg hook).
 
