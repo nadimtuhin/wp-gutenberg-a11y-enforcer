@@ -146,6 +146,115 @@ class ContrastChecker {
         ];
     }
 
+    // ── Contrast Auto-Adjuster (Issue #12) ──────────────────────────────────
+
+    /**
+     * Adjust a foreground hex color until it passes WCAG AA against a given
+     * background.  Darkens or lightens the foreground in small steps until the
+     * contrast ratio meets $min_ratio (default: WCAG AA normal = 4.5:1).
+     *
+     * Returns the adjusted hex string (with #) on success, or null when a
+     * passing color cannot be found within the search space (should be very
+     * rare — black on white is always 21:1, white on black always 21:1).
+     *
+     * Algorithm: binary search between the original color and black (to darken)
+     * first; if that doesn't reach the target, tries the other direction
+     * (lighten toward white).  This preserves hue while adjusting luminance.
+     *
+     * @param string $fg_hex     Foreground color e.g. '#767676' or '767676'.
+     * @param string $bg_hex     Background color.
+     * @param float  $min_ratio  Minimum ratio (default WCAG_AA_NORMAL = 4.5).
+     * @return string|null       Adjusted '#RRGGBB' or null if impossible.
+     */
+    public function adjustForContrast(
+        string $fg_hex,
+        string $bg_hex,
+        float $min_ratio = self::WCAG_AA_NORMAL
+    ): ?string {
+        $fg = $this->hexToRgb( $fg_hex );
+        $bg = $this->hexToRgb( $bg_hex );
+
+        if ( $fg === null || $bg === null ) {
+            return null;
+        }
+
+        // Already passes — return original.
+        if ( $this->contrastRatio( $fg, $bg ) >= $min_ratio ) {
+            return '#' . strtolower( ltrim( $fg_hex, '#' ) );
+        }
+
+        // Try darkening first, then lightening.
+        $result = $this->binarySearchColor( $fg, [ 0, 0, 0 ], $bg, $min_ratio )
+            ?? $this->binarySearchColor( $fg, [ 255, 255, 255 ], $bg, $min_ratio );
+
+        return $result;
+    }
+
+    /**
+     * Binary search between $start RGB and $target RGB until contrast passes.
+     *
+     * @param int[] $start      Original foreground [r,g,b].
+     * @param int[] $target     Direction: [0,0,0] to darken, [255,255,255] to lighten.
+     * @param int[] $bg         Background [r,g,b].
+     * @param float $min_ratio
+     * @return string|null  '#RRGGBB' or null.
+     */
+    private function binarySearchColor(
+        array $start,
+        array $target,
+        array $bg,
+        float $min_ratio
+    ): ?string {
+        // Quick bail: if the extreme end of the search direction doesn't pass, give up.
+        if ( $this->contrastRatio( $target, $bg ) < $min_ratio ) {
+            return null;
+        }
+
+        $lo = 0.0;
+        $hi = 1.0;
+
+        for ( $i = 0; $i < 20; $i++ ) {
+            $mid  = ( $lo + $hi ) / 2.0;
+            $candidate = $this->blendRgb( $start, $target, $mid );
+            if ( $this->contrastRatio( $candidate, $bg ) >= $min_ratio ) {
+                $hi = $mid;
+            } else {
+                $lo = $mid;
+            }
+        }
+
+        $best = $this->blendRgb( $start, $target, $hi );
+        return $this->rgbToHex( $best );
+    }
+
+    /**
+     * Linear interpolation between two RGB triplets.
+     *
+     * @param int[]  $a    Start color.
+     * @param int[]  $b    End color.
+     * @param float  $t    0.0 = $a, 1.0 = $b.
+     * @return int[]
+     */
+    private function blendRgb( array $a, array $b, float $t ): array {
+        return [
+            (int) round( $a[0] + ( $b[0] - $a[0] ) * $t ),
+            (int) round( $a[1] + ( $b[1] - $a[1] ) * $t ),
+            (int) round( $a[2] + ( $b[2] - $a[2] ) * $t ),
+        ];
+    }
+
+    /**
+     * Convert [r,g,b] (0–255) to '#rrggbb'.
+     *
+     * @param int[] $rgb
+     * @return string
+     */
+    public function rgbToHex( array $rgb ): string {
+        return sprintf( '#%02x%02x%02x', $rgb[0], $rgb[1], $rgb[2] );
+    }
+
+    // ── Editor JS ────────────────────────────────────────────────────────────
+
     /**
      * Enqueue the real-time contrast checker editor JS.
      */

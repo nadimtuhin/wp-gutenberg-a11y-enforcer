@@ -150,4 +150,71 @@ class ContrastCheckerTest extends TestCase {
         $this->checker->enqueueEditorScript();
         $this->assertTrue( true );
     }
+
+    // ── adjustForContrast (Issue #12) ────────────────────────────────────────
+
+    public function testAdjustForContrastReturnsOriginalWhenAlreadyPasses(): void {
+        // Black on white already passes (21:1).
+        $result = $this->checker->adjustForContrast( '#000000', '#ffffff' );
+        $this->assertSame( '#000000', $result );
+    }
+
+    public function testAdjustForContrastDarkensGrayOnWhiteToPassAA(): void {
+        // #767676 on white has ratio ~4.48 — just below 4.5 AA threshold.
+        $result = $this->checker->adjustForContrast( '#767676', '#ffffff' );
+        $this->assertNotNull( $result );
+
+        // Verify the adjusted color actually passes.
+        $fg_rgb = $this->checker->hexToRgb( $result );
+        $bg_rgb = $this->checker->hexToRgb( '#ffffff' );
+        $ratio  = $this->checker->contrastRatio( $fg_rgb, $bg_rgb );
+        $this->assertGreaterThanOrEqual( \GutenbergA11yEnforcer\ContrastChecker::WCAG_AA_NORMAL, $ratio );
+    }
+
+    public function testAdjustForContrastLightensOnDarkBackground(): void {
+        // Light gray on dark bg — may need lightening.
+        $result = $this->checker->adjustForContrast( '#999999', '#222222' );
+        $this->assertNotNull( $result );
+
+        $fg_rgb = $this->checker->hexToRgb( $result );
+        $bg_rgb = $this->checker->hexToRgb( '#222222' );
+        $ratio  = $this->checker->contrastRatio( $fg_rgb, $bg_rgb );
+        $this->assertGreaterThanOrEqual( \GutenbergA11yEnforcer\ContrastChecker::WCAG_AA_NORMAL, $ratio );
+    }
+
+    public function testAdjustForContrastReturnsNullForInvalidHex(): void {
+        $this->assertNull( $this->checker->adjustForContrast( 'notacolor', '#ffffff' ) );
+        $this->assertNull( $this->checker->adjustForContrast( '#ffffff', 'notacolor' ) );
+    }
+
+    public function testAdjustForContrastReturnsHexString(): void {
+        $result = $this->checker->adjustForContrast( '#888888', '#ffffff' );
+        $this->assertNotNull( $result );
+        $this->assertMatchesRegularExpression( '/^#[0-9a-f]{6}$/', $result );
+    }
+
+    public function testAdjustForContrastCustomRatio(): void {
+        // Require AAA (7:1) on white.
+        $result = $this->checker->adjustForContrast( '#767676', '#ffffff', \GutenbergA11yEnforcer\ContrastChecker::WCAG_AAA_NORMAL );
+        $this->assertNotNull( $result );
+
+        $fg_rgb = $this->checker->hexToRgb( $result );
+        $bg_rgb = $this->checker->hexToRgb( '#ffffff' );
+        $ratio  = $this->checker->contrastRatio( $fg_rgb, $bg_rgb );
+        $this->assertGreaterThanOrEqual( \GutenbergA11yEnforcer\ContrastChecker::WCAG_AAA_NORMAL, $ratio );
+    }
+
+    // ── rgbToHex ─────────────────────────────────────────────────────────────
+
+    public function testRgbToHexBlack(): void {
+        $this->assertSame( '#000000', $this->checker->rgbToHex( [ 0, 0, 0 ] ) );
+    }
+
+    public function testRgbToHexWhite(): void {
+        $this->assertSame( '#ffffff', $this->checker->rgbToHex( [ 255, 255, 255 ] ) );
+    }
+
+    public function testRgbToHexRed(): void {
+        $this->assertSame( '#ff0000', $this->checker->rgbToHex( [ 255, 0, 0 ] ) );
+    }
 }
