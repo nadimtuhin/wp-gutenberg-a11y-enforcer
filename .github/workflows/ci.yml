@@ -8,17 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --ignore-scripts
-      - run: npm run lint || true
-
   php:
     runs-on: ubuntu-latest
     steps:
@@ -26,5 +15,15 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-      - run: composer validate --no-strict || true
-      - run: composer install --no-interaction --quiet || true
+          coverage: none
+      - name: Validate composer.json
+        run: composer validate --no-strict
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Run tests (if present)
+        run: |
+          if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
+            vendor/bin/phpunit
+          else
+            echo "No PHPUnit config, skipping tests"
+          fi
