@@ -8,5 +8,7 @@
         "psr-4": {
             "GutenbergA11yEnforcer\\": "includes/"
         }
-    }
+    },
+    "description": "Enforce WCAG accessibility in Gutenberg block editor",
+    "license": "MIT"
 }
