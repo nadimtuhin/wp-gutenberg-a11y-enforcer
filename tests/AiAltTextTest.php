@@ -26,6 +26,9 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
         }
         public function get_status(): int  { return $this->status; }
         public function get_data(): mixed  { return $this->data; }
+        private array $headers = [];
+        public function header( string $k, $v ): void { $this->headers[ $k ] = $v; }
+        public function get_headers(): array { return $this->headers; }
     }
 }
 
@@ -33,7 +36,14 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 if ( ! function_exists( 'add_action' ) )          { function add_action() {} }
 if ( ! function_exists( 'add_filter' ) )          { function add_filter() {} }
 if ( ! function_exists( 'register_rest_route' ) ) { function register_rest_route( $ns, $route, $args ) {} }
-if ( ! function_exists( 'current_user_can' ) )    { function current_user_can( $cap ) { return true; } }
+if ( ! function_exists( 'current_user_can' ) ) {
+    // Default allow; tests may set $GLOBALS['_gae_test_user_can'] to a bool or
+    // a callable( $cap, ...$args ) to exercise permission callbacks.
+    function current_user_can( $cap, ...$args ) {
+        $can = $GLOBALS['_gae_test_user_can'] ?? true;
+        return is_callable( $can ) ? (bool) $can( $cap, ...$args ) : (bool) $can;
+    }
+}
 if ( ! function_exists( 'get_post' ) )            { function get_post( $id ) { return null; } }
 if ( ! function_exists( 'wp_get_attachment_caption' ) ) { function wp_get_attachment_caption( $id ) { return ''; } }
 if ( ! function_exists( 'apply_filters' ) )       { function apply_filters( $tag, $value ) { return $value; } }
