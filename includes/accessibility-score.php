@@ -41,10 +41,8 @@ class AccessibilityScore {
             [
                 'methods'             => 'GET',
                 'callback'            => [ $this, 'restAccessibilityScore' ],
-                'permission_callback' => function() {
-                    // Require edit_posts: exposes post content via block parse. Issue #32.
-                    return \current_user_can( 'edit_posts' );
-                },
+                // Exposes post content via block parse: require access to that post. Issue #32.
+                'permission_callback' => [ $this, 'canAccessPost' ],
                 'args'                => [
                     'post_id' => [
                         'required'          => true,
@@ -53,6 +51,16 @@ class AccessibilityScore {
                 ],
             ]
         );
+    }
+
+    /**
+     * REST permission callback: the user must be able to edit the requested
+     * post. A global capability check would let any contributor (or, for a
+     * public route, any visitor) read data derived from private/draft posts.
+     */
+    public function canAccessPost( \WP_REST_Request $request ): bool {
+        $post_id = \absint( $request->get_param( 'post_id' ) );
+        return $post_id > 0 && \current_user_can( 'edit_post', $post_id );
     }
 
     public function restAccessibilityScore( \WP_REST_Request $request ): \WP_REST_Response {

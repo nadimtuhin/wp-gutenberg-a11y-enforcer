@@ -41,13 +41,23 @@ class TrendChart {
             [
                 'methods'             => 'GET',
                 'callback'            => [ $this, 'restScoreTrend' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => [ $this, 'canAccessPost' ],
                 'args'                => [
                     'post_id' => [ 'required' => true, 'sanitize_callback' => 'absint' ],
                     'limit'   => [ 'required' => false, 'sanitize_callback' => 'absint' ],
                 ],
             ]
         );
+    }
+
+    /**
+     * REST permission callback: the user must be able to edit the requested
+     * post. A global capability check would let any contributor (or, for a
+     * public route, any visitor) read data derived from private/draft posts.
+     */
+    public function canAccessPost( \WP_REST_Request $request ): bool {
+        $post_id = \absint( $request->get_param( 'post_id' ) );
+        return $post_id > 0 && \current_user_can( 'edit_post', $post_id );
     }
 
     public function restScoreTrend( \WP_REST_Request $request ): \WP_REST_Response {

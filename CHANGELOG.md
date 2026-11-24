@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Community health files (CONTRIBUTING, SECURITY, CODE_OF_CONDUCT)
 - GitHub issue and PR templates
 
+### Fixed
+- `content_save_pre` filters now unslash before parsing blocks, so block attributes are no longer dropped on save
+- `require_alt` reads core/image alt text from the `<img alt>` markup, so images with alt text are no longer stripped
+- `score-trend`, `video-caption-check` and `accessibility-score` REST routes require `edit_post` on the requested post
+- `GET /gae/v1/logs?per_page=0` no longer fatals with `DivisionByZeroError`
+- CI lints every PHP file and runs tests on PHP 8.1–8.4
+
 ## [1.0.0] - 2026-07-17
 
 ### Added

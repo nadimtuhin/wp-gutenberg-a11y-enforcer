@@ -173,8 +173,10 @@ class ValidationLog {
      * REST GET /gae/v1/logs callback.
      */
     public function restGetLogs( \WP_REST_Request $request ): \WP_REST_Response {
-        $per_page = (int) $request->get_param( 'per_page' );
-        $page     = (int) $request->get_param( 'page' );
+        // Clamp like getEntries(): per_page=0 caused a DivisionByZeroError
+        // (fatal on PHP 8) in the X-WP-TotalPages calculation below.
+        $per_page = min( 500, max( 1, (int) $request->get_param( 'per_page' ) ) );
+        $page     = max( 1, (int) $request->get_param( 'page' ) );
         $entries  = $this->getEntries( $per_page, $page );
         $total    = $this->countEntries();
 
