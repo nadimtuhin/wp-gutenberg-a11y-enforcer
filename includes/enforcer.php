@@ -82,7 +82,7 @@ class Enforcer {
         foreach ( $rules as $rule ) {
             switch ( $rule ) {
                 case 'require_alt':
-                    if ( empty( $attrs['alt'] ) ) {
+                    if ( ! $this->imageHasAlt( $block ) ) {
                         $msg = "core/image: missing alt text (WCAG 1.1.1).";
                         /**
                          * Filter a violation message for a specific block and rule.
@@ -160,7 +160,7 @@ class Enforcer {
         if ( ( $block['blockName'] ?? '' ) !== 'core/image' ) {
             return $block;
         }
-        if ( ! empty( $block['attrs']['alt'] ) ) {
+        if ( $this->imageHasAlt( $block ) ) {
             return $block;
         }
 
@@ -171,6 +171,27 @@ class Enforcer {
         }
 
         return $block;
+    }
+
+    /**
+     * Whether an image block carries non-empty alt text.
+     *
+     * core/image sources `alt` from the `<img alt="…">` attribute in the saved
+     * markup, so parse_blocks() never puts it in the comment attrs. Check the
+     * attrs first (filters / programmatic blocks) and then the markup.
+     */
+    private function imageHasAlt( array $block ): bool {
+        if ( '' !== trim( (string) ( $block['attrs']['alt'] ?? '' ) ) ) {
+            return true;
+        }
+
+        $html = (string) ( $block['innerHTML'] ?? '' );
+        if ( ! preg_match( '/<img\b[^>]*?\salt\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $html, $m ) ) {
+            return false;
+        }
+
+        $alt = $m[1] . ( $m[2] ?? '' ) . ( $m[3] ?? '' );
+        return '' !== trim( html_entity_decode( $alt, ENT_QUOTES ) );
     }
 
     /**
@@ -206,7 +227,10 @@ class Enforcer {
             return $content;
         }
 
-        $blocks  = parse_blocks( $content );
+        // content_save_pre receives slashed data (wp_insert_post expects it).
+        // Parsing it as-is breaks the JSON block attributes, so every attribute
+        // was dropped on save. Unslash to parse; re-slash the result.
+        $blocks  = parse_blocks( $this->unslash( $content ) );
 
         // Apply alt auto-fixer before validation (Issue #7).
         $blocks = array_map( [ $this, 'maybeAutoFixAlt' ], $blocks );
@@ -252,7 +276,7 @@ class Enforcer {
             }
         }
 
-        return $this->serializeBlocks( $kept );
+        return $this->slash( $this->serializeBlocks( $kept ) );
     }
 
     /**
@@ -358,6 +382,14 @@ class Enforcer {
             $post_id = absint( wp_unslash( $_POST['post_ID'] ) );
         }
         return $post_id;
+    }
+
+    private function unslash( string $value ): string {
+        return function_exists( 'wp_unslash' ) ? \wp_unslash( $value ) : stripslashes( $value );
+    }
+
+    private function slash( string $value ): string {
+        return function_exists( 'wp_slash' ) ? \wp_slash( $value ) : addslashes( $value );
     }
 
     private function ruleFromMessage( string $msg ): string {

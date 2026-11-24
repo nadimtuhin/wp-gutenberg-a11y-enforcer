@@ -64,7 +64,8 @@ class SchemaValidator {
             return $content;
         }
 
-        $blocks = \parse_blocks( $content );
+        // content_save_pre data is slashed; unslash so block attrs JSON parses.
+        $blocks = \parse_blocks( function_exists( 'wp_unslash' ) ? \wp_unslash( $content ) : stripslashes( $content ) );
 
         foreach ( $blocks as $block ) {
             $name   = $block['blockName'] ?? '';

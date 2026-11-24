@@ -52,6 +52,9 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
     }
 }
 
+// content_save_pre receives slashed data; mirror WP's slash helpers.
+if ( ! function_exists( 'wp_unslash' ) )   { function wp_unslash( $v ) { return is_string( $v ) ? stripslashes( $v ) : $v; } }
+if ( ! function_exists( 'wp_slash' ) )     { function wp_slash( $v ) { return is_string( $v ) ? addslashes( $v ) : $v; } }
 if ( ! function_exists( 'add_filter' ) )   { function add_filter()   {} }
 if ( ! function_exists( 'add_action' ) )   { function add_action()   {} }
 if ( ! function_exists( 'get_option' ) )   { function get_option( $k, $d = false ) { return $d; } }
